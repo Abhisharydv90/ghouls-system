@@ -1,0 +1,81 @@
+{
+  "system_memory": [
+    {
+      "timestamp": "12/6/2026, 11:28:19 pm",
+      "user_directive": " Send an email to reenakri9900@gmail.com welcoming them to Ghouls OS Phase 3. Make sure to flag it for approval before sending.",
+      "actions_completed": [
+        "The user wants to send a welcoming email to reenakri9900@gmail.com for Ghouls OS Phase 3. This task requires the Comms_Agent. Since sending an email involves outward communication and sending data to the internet, it must be flagged for manual approval."
+      ]
+    },
+    {
+      "timestamp": "13/6/2026, 8:03:04 am",
+      "user_directive": "Write a basic Express.js reverse proxy script named 'proxy_test.js' in my current directory that listens on port 8080 and forwards traffic to 'http://example.com'. Log the incoming request URLs to the console.",
+      "actions_completed": [
+        "The user wants to create an Express.js script. This involves writing a new file with specific JavaScript content. The Dev_Agent is responsible for writing files."
+      ]
+    },
+    {
+      "timestamp": "13/6/2026, 11:12:32 am",
+      "user_directive": "Search the web for the latest Next.js App Router caching features. Summarize the findings and write them into a new file named 'nextjs_research.txt'.",
+      "actions_completed": [
+        "The user wants to research 'Next.js App Router caching features' on the web. This requires using the Browser_Agent to search a website, such as Google. Accessing live internet data requires manual approval.",
+        "After the web search results are obtained and summarized (an internal process), the findings need to be written to a new file named 'nextjs_research.txt'. This is a local file operation and does not require approval."
+      ]
+    },
+    {
+      "timestamp": "13/6/2026, 11:18:08 am",
+      "user_directive": "ok tell me about your capabilities ",
+      "actions_completed": [
+        "The user wants to know about my capabilities. As the CEO Agent of Ghouls OS, I manage four specialized agents. I will explain my role and the functions of each agent in detail. Since all responses must be a valid JSON array of objects representing a delegated task, and I don't have a direct 'self-description' agent, the most appropriate way to 'tell' the user is to write this information into a file using the Dev_Agent. The user can then read this file to understand my capabilities."
+      ]
+    },
+    {
+      "timestamp": "13/6/2026, 1:50:55 pm",
+      "user_directive": "Search the web for the latest Next.js App Router caching features. Summarize the findings and write them into a new file named 'nextjs_research.txt'.",
+      "actions_completed": [
+        "The user wants to search the web for 'latest Next.js App Router caching features'. This requires using the Browser_Agent to perform a web search, which involves accessing live internet data and thus needs manual approval.",
+        "After the web search results are obtained and summarized internally, the findings need to be written into a new file named 'nextjs_research.txt'. This task falls under the Dev_Agent and is a local file operation, so it does not require approval. The content will be populated with the actual summary after the previous step is executed and results are processed."
+      ]
+    },
+    {
+      "timestamp": "13/6/2026, 1:54:22 pm",
+      "user_directive": "Search the web for the latest Next.js App Router caching features. Summarize the findings and write them into a new file named 'nextjs_research.txt'.",
+      "actions_completed": [
+        "The user wants to search the web for 'latest Next.js App Router caching features'. This requires using the Browser_Agent to perform a web search, which involves accessing live internet data and thus needs manual approval. I will construct a Google search URL for the payload.",
+        "After the web search results are obtained and summarized internally, the findings need to be written into a new file named 'nextjs_research.txt'. This task falls under the Dev_Agent and is a local file operation, so it does not require approval. The content will be populated with the actual summary after the previous step is executed and results are processed."
+      ]
+    },
+    {
+      "timestamp": "13/6/2026, 1:57:18 pm",
+      "user_directive": " Search the web for the latest Next.js App Router caching features. Summarize the findings and write them into a new file named 'nextjs_research.txt'.",
+      "actions_completed": [
+        "The user wants to search the web for 'latest Next.js App Router caching features'. This requires using the Browser_Agent to perform a web search, which involves accessing live internet data and thus needs manual approval. I will construct a Google search URL for the payload.",
+        "After the web search results are obtained and summarized internally, the findings need to be written into a new file named 'nextjs_research.txt'. This task falls under the Dev_Agent and is a local file operation, so it does not require approval. The content will be populated with the actual summary after the previous step is executed and results are processed."
+      ]
+    },
+    {
+      "timestamp": "13/6/2026, 2:02:09 pm",
+      "user_directive": "Search the web for the latest Next.js App Router caching features. Summarize the findings and write them into a new file named 'nextjs_research.txt'.",
+      "actions_completed": [
+        "The user wants to search the web for 'latest Next.js App Router caching features'. This requires using the Browser_Agent to perform a web search, which involves accessing live internet data and thus needs manual approval. I will construct a Google search URL for the payload.",
+        "After the web search results are obtained and summarized internally, the findings need to be written into a new file named 'nextjs_research.txt'. This task falls under the Dev_Agent and is a local file operation, so it does not require approval. The content will be populated with the actual summary after the previous step is executed and results are processed."
+      ]
+    },
+    {
+      "timestamp": "13/6/2026, 2:12:59 pm",
+      "user_directive": "Search the web for the latest Next.js App Router caching features. Summarize the findings and write them into a new file named 'nextjs_research.txt'.",
+      "actions_completed": [
+        "The user wants to search the web for 'latest Next.js App Router caching features'. This requires using the Browser_Agent to perform a web search, which involves accessing live internet data and thus needs manual approval. I will construct a Google search URL for the payload.",
+        "After the web search results are obtained and summarized internally, the findings need to be written into a new file named 'nextjs_research.txt'. This task falls under the Dev_Agent and is a local file operation, so it does not require approval. The content will be populated with the actual summary after the previous step is executed and results are processed."
+      ]
+    },
+    {
+      "timestamp": "13/6/2026, 2:16:32 pm",
+      "user_directive": "Maps directly to the URL 'https://en.wikipedia.org/wiki/Next.js'. Read the data, summarize its core features, and write the summary into a new file named 'nextjs_research.txt'",
+      "actions_completed": [
+        "The user wants to read data from a specific URL ('https://en.wikipedia.org/wiki/Next.js'), which requires the Browser_Agent. Since this involves accessing live internet data, it must be flagged for manual approval.",
+        "After the content from the URL is retrieved and summarized (an internal process), the summary needs to be written into a new file named 'nextjs_research.txt'. This task falls under the Dev_Agent and is a local file operation, so it does not require approval. The content will be populated with the actual summary after the previous step is executed and results are processed."
+      ]
+    }
+  ]
+}

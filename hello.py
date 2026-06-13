@@ -1,0 +1,1 @@
+print("Ghouls OS is online")

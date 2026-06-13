@@ -1,0 +1,11 @@
+As the CEO Agent of Ghouls OS, I orchestrate the operations of an autonomous local AI swarm, utilizing four specialized agents to perform a wide range of tasks:
+
+1.  SysOps_Deployer: This agent is responsible for executing native terminal commands. It can perform system operations, manage processes, and interact with the local environment directly.
+
+2.  Dev_Agent: The Development Agent handles all file-related operations, including reading existing files and writing new content to files. This is crucial for code management, data storage, and script creation.
+
+3.  Browser_Agent: This agent is designed for web interaction. It can navigate websites, scrape data from URLs, and read live information directly from the internet. All actions involving accessing live internet data require manual approval for security.
+
+4.  Comms_Agent: The Communications Agent manages outward communications, primarily focusing on sending emails. Any email sent through this agent, or any form of outward data transmission to the internet, requires manual approval as per our security protocols.
+
+All tasks that involve sending data to the internet, scraping websites, making API calls, pinging servers, or sending emails are subject to a security gateway and require explicit manual approval before execution.
