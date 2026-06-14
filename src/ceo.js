@@ -42,61 +42,78 @@ swarmBus.on('ceo:directive', async (rawInstruction) => {
             targetUrl = 'https://en.wikipedia.org/wiki/Dynamic_application_security_testing';
             outputFilename = 'dast_framework.js';
         } else if (instructionLower.includes('fibonacci') || instructionLower.includes('math') || instructionLower.includes('sequence')) {
-            // --- FIXED: Added dedicated structural branch for computing workloads ---
             projectName = 'math_operations';
             targetUrl = 'https://en.wikipedia.org/wiki/Fibonacci_sequence';
             outputFilename = 'fibonacci_calc.js';
         }
 
-        // 2. LONG-TERM PERSISTENT MEMORY LOOKUP
-        // Ping the memory matrix before requesting new compute sequences
+        // 2. LONG-TERM PERSISTENT MEMORY LOOKUP (Now with Async Short-Circuiting)
         swarmBus.emit('agent:thought', 'CEO_Agent', `Querying Vector Memory Bank for existing architectural patterns matching [${projectName}]...`);
-        swarmBus.emit('memory:retrieve', `${projectName}_${outputFilename}`);
+        
+        // Wait up to 1 second for the Memory Agent to reply before moving on
+        const cachedCode = await new Promise((resolve) => {
+            const timeout = setTimeout(() => resolve(null), 1000); 
+            
+            swarmBus.once('memory:retrieved_data', (code) => {
+                clearTimeout(timeout);
+                resolve(code);
+            });
+            
+            swarmBus.emit('memory:retrieve', `${projectName}_${outputFilename}`);
+        });
 
-        // Escalating complex task planning to high-tier heavy reasoning models
-        await routeCognitiveTask('heavy', `Generate multi-agent graph execution vectors for project space: ${projectName}`);
+        let generatedPlan;
 
-        // 3. EXPANDED 4-STEP AGENTIC PLAN (Featuring Step 4 QA Verification)
-        const generatedPlan = {
-            projectName: projectName,
-            steps: [
-                {
-                    step: 1,
-                    agent: 'Browser_Agent',
-                    action: 'SCRAPE_URL',
-                    url: targetUrl
-                },
-                {
-                    step: 2,
-                    agent: 'Dev_Agent',
-                    action: 'WRITE_ISOLATED_FILE',
-                    fileName: outputFilename,
-                    filename: outputFilename // Cross-parameter shielding
-                },
-                {
-                    step: 3,
-                    agent: 'Executor_Agent', 
-                    action: 'EXECUTE_SANDBOX_SCRIPT',
-                    fileName: outputFilename,
-                    filename: outputFilename
-                },
-                {
-                    step: 4,
-                    agent: 'QA_Agent', // <--- THE UPGRADE: Closes the persistent memory loophole
-                    action: 'VERIFY_AND_STORE',
-                    fileName: outputFilename,
-                    filename: outputFilename
-                }
-            ]
-        };
+        // 3. DYNAMIC GRAPH ROUTING (Fast-Track vs Generation)
+        if (cachedCode) {
+            swarmBus.emit('agent:thought', 'CEO_Agent', `[MEMORY HIT]: Bypassing cognitive generation and QA phases. Initiating Fast-Track execution.`);
+            
+            // Inject the cached code into the Dev Agent's shared memory immediately
+            swarmBus.emit('orchestrator:task_complete', { key: 'cached_code', value: cachedCode });
+
+            generatedPlan = {
+                projectName: projectName,
+                steps: [
+                    {
+                        step: 1,
+                        agent: 'Dev_Agent',
+                        action: 'WRITE_ISOLATED_FILE',
+                        fileName: outputFilename,
+                        filename: outputFilename,
+                        prompt: `OUTPUT EXACTLY THIS CACHED CODE, NO CHANGES: \n\n ${cachedCode}`
+                    },
+                    {
+                        step: 2,
+                        agent: 'Executor_Agent', 
+                        action: 'EXECUTE_SANDBOX_SCRIPT',
+                        fileName: outputFilename,
+                        filename: outputFilename
+                    }
+                ]
+            };
+        } else {
+            // Escalating complex task planning to high-tier heavy reasoning models
+            await routeCognitiveTask('heavy', `Generate multi-agent graph execution vectors for project space: ${projectName}`);
+
+            generatedPlan = {
+                projectName: projectName,
+                steps: [
+                    { step: 1, agent: 'Browser_Agent', action: 'SCRAPE_URL', url: targetUrl },
+                    { step: 2, agent: 'Dev_Agent', action: 'WRITE_ISOLATED_FILE', fileName: outputFilename, filename: outputFilename },
+                    { step: 3, agent: 'Executor_Agent', action: 'EXECUTE_SANDBOX_SCRIPT', fileName: outputFilename, filename: outputFilename },
+                    { step: 4, agent: 'QA_Agent', action: 'VERIFY_AND_STORE', fileName: outputFilename, filename: outputFilename }
+                ]
+            };
+        }
 
         // Recalculate metrics engine to reflect edge routing savings
-        estCost = 0.00035; 
+        estCost = cachedCode ? 0.00005 : 0.00035; // Dropped cost massively if cached
 
         const duration = Date.now() - startTime;
 
         // Emit log sequences showing real-time optimization telemetry
-        swarmBus.emit('agent:log', 'CEO_Agent', `Plan compiled with 4 autonomous execution nodes. Cost optimized via Hybrid Edge Routing. Target: [${projectName}]`, duration, estCost);
+        const nodeCount = cachedCode ? 2 : 4;
+        swarmBus.emit('agent:log', 'CEO_Agent', `Plan compiled with ${nodeCount} autonomous execution nodes. Cost optimized via Hybrid Edge Routing. Target: [${projectName}]`, duration, estCost);
         swarmBus.emit('orchestrator:init_plan', generatedPlan);
 
     } catch (error) {
