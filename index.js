@@ -9,10 +9,13 @@ import schedule from 'node-schedule';
 // Load system runtime components
 import swarmBus from './src/swarmBus.js';
 import './src/orchestrator.js';  // <--- THE MISSING BRAIN HAS BEEN RECONNECTED
+import './src/memory.js';
+import './src/qa.js';
 import './src/ceo.js';
 import './src/browser.js';
 import './src/dev.js';
 import './src/sysops.js';
+import './src/executor.js';
 
 const app = express();
 app.use(cors());
