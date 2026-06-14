@@ -25,7 +25,7 @@ swarmBus.on('ceo:directive', async (rawInstruction) => {
         // Instantly analyze intent using zero-cost, high-speed edge intelligence models
         await routeCognitiveTask('fast', `Parse intent from payload: ${rawInstruction}`);
         
-        // Default execution metrics configuration (Upgraded from .txt to .js for native sandbox execution)
+        // Default execution metrics configuration
         let projectName = 'research_analytics';
         let targetUrl = 'https://en.wikipedia.org/wiki/Next.js';
         let outputFilename = 'nextjs_research.js'; 
@@ -41,6 +41,11 @@ swarmBus.on('ceo:directive', async (rawInstruction) => {
             projectName = 'vuln_dast_scanner';
             targetUrl = 'https://en.wikipedia.org/wiki/Dynamic_application_security_testing';
             outputFilename = 'dast_framework.js';
+        } else if (instructionLower.includes('fibonacci') || instructionLower.includes('math') || instructionLower.includes('sequence')) {
+            // --- FIXED: Added dedicated structural branch for computing workloads ---
+            projectName = 'math_operations';
+            targetUrl = 'https://en.wikipedia.org/wiki/Fibonacci_sequence';
+            outputFilename = 'fibonacci_calc.js';
         }
 
         // 2. LONG-TERM PERSISTENT MEMORY LOOKUP
@@ -51,7 +56,7 @@ swarmBus.on('ceo:directive', async (rawInstruction) => {
         // Escalating complex task planning to high-tier heavy reasoning models
         await routeCognitiveTask('heavy', `Generate multi-agent graph execution vectors for project space: ${projectName}`);
 
-        // 3. EXPANDED AGENTIC PLAN (Featuring Step 3 Sandbox Execution)
+        // 3. EXPANDED 4-STEP AGENTIC PLAN (Featuring Step 4 QA Verification)
         const generatedPlan = {
             projectName: projectName,
             steps: [
@@ -65,13 +70,22 @@ swarmBus.on('ceo:directive', async (rawInstruction) => {
                     step: 2,
                     agent: 'Dev_Agent',
                     action: 'WRITE_ISOLATED_FILE',
-                    filename: outputFilename
+                    fileName: outputFilename,
+                    filename: outputFilename // Cross-parameter shielding
                 },
                 {
                     step: 3,
-                    agent: 'Executor_Agent', // <--- THE UPGRADE: SANDBOX RUNTIME ADDED TO PLAN
+                    agent: 'Executor_Agent', 
                     action: 'EXECUTE_SANDBOX_SCRIPT',
-                    fileName: outputFilename
+                    fileName: outputFilename,
+                    filename: outputFilename
+                },
+                {
+                    step: 4,
+                    agent: 'QA_Agent', // <--- THE UPGRADE: Closes the persistent memory loophole
+                    action: 'VERIFY_AND_STORE',
+                    fileName: outputFilename,
+                    filename: outputFilename
                 }
             ]
         };
@@ -82,7 +96,7 @@ swarmBus.on('ceo:directive', async (rawInstruction) => {
         const duration = Date.now() - startTime;
 
         // Emit log sequences showing real-time optimization telemetry
-        swarmBus.emit('agent:log', 'CEO_Agent', `Plan compiled with 3 autonomous execution nodes. Cost optimized via Hybrid Edge Routing. Target: [${projectName}]`, duration, estCost);
+        swarmBus.emit('agent:log', 'CEO_Agent', `Plan compiled with 4 autonomous execution nodes. Cost optimized via Hybrid Edge Routing. Target: [${projectName}]`, duration, estCost);
         swarmBus.emit('orchestrator:init_plan', generatedPlan);
 
     } catch (error) {

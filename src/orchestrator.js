@@ -33,7 +33,6 @@ class Orchestrator {
             this.executeNextStep();
         });
 
-        // --- NEW: Catches successful execution from Executor_Agent ---
         swarmBus.on('orchestrator:step_complete', () => {
             swarmBus.emit('agent:thought', 'Orchestrator', `Execution step verified. Proceeding to next task.`);
             this.state.currentStep++;
@@ -41,6 +40,8 @@ class Orchestrator {
         });
 
         swarmBus.on('orchestrator:next', () => {
+            swarmBus.emit('agent:thought', 'Orchestrator', `Advancing pipeline sequence.`);
+            this.state.currentStep++;
             this.executeNextStep();
         });
 
@@ -49,22 +50,28 @@ class Orchestrator {
             swarmBus.emit('agent:log', 'System', `Execution halted due to error: ${errorMessage}`);
         });
 
-        // --- NEW: The Autoregressive Self-Healing Loop ---
-        swarmBus.on('orchestrator:repair_loop', ({ projectName, fileName, errorLog }) => {
+        // --- FIXED: Self-Healing Payload Normalization ---
+        swarmBus.on('orchestrator:repair_loop', (payload) => {
             swarmBus.emit('agent:thought', 'Orchestrator', `[CRITICAL]: Routing stack trace back to [Dev_Agent] for autonomous repair.`);
             
-            const repairPrompt = `You previously wrote ${fileName} for the project ${projectName}. 
+            const projectName = payload.projectName || this.state.currentProject;
+            // Unify file target naming variants to neutralize the output.txt bug
+            const finalFileName = payload.fileName || payload.filename || 'script.js';
+            const errorLog = payload.errorLog || 'Unknown execution trace.';
+
+            const repairPrompt = `You previously wrote ${finalFileName} for the project ${projectName}. 
 I just tried to execute it in the sandbox, and it crashed with this exact terminal error:
 
 ${errorLog}
 
 Analyze the stack trace, identify the logical or syntax error, and rewrite the entire file to fix it. Do not stop until it compiles.`;
 
-            // Reroute back to Dev Agent with the error log injected into the prompt
+            // Reroute back to Dev Agent with consistent file keys
             swarmBus.emit('task:dev', {
                 agent: 'Dev_Agent',
                 projectName: projectName,
-                fileName: fileName,
+                fileName: finalFileName,
+                filename: finalFileName, 
                 prompt: repairPrompt,
                 sharedMemory: this.state.sharedMemory
             });
@@ -81,13 +88,17 @@ Analyze the stack trace, identify the logical or syntax error, and rewrite the e
         const nextTask = this.state.plan[this.state.currentStep];
         swarmBus.emit('agent:thought', 'Orchestrator', `Routing Step ${this.state.currentStep + 1}/${this.state.plan.length} to [${nextTask.agent}]`);
 
+        // Ensure file tracking references exist uniformly under both parameter conventions
+        const unifiedFileName = nextTask.fileName || nextTask.filename || 'script.js';
+
         const taskPayload = {
             ...nextTask,
+            fileName: unifiedFileName,
+            filename: unifiedFileName,
             projectName: this.state.currentProject,
             sharedMemory: this.state.sharedMemory
         };
 
-        // --- NEW: Added routing for the Executor_Agent ---
         if (nextTask.agent === 'Browser_Agent') {
             swarmBus.emit('task:browser', taskPayload);
         } else if (nextTask.agent === 'Dev_Agent') {
@@ -96,6 +107,9 @@ Analyze the stack trace, identify the logical or syntax error, and rewrite the e
             swarmBus.emit('task:sysops', taskPayload);
         } else if (nextTask.agent === 'Executor_Agent') {
             swarmBus.emit('executor:run_script', taskPayload);
+        } else if (nextTask.agent === 'QA_Agent') {
+            // --- THE UPGRADE: Router explicitly hands execution space over to adversarial validation engine ---
+            swarmBus.emit('qa:review_build', taskPayload);
         } else {
             swarmBus.emit('orchestrator:error', `Unknown target agent entity: ${nextTask.agent}`);
         }
