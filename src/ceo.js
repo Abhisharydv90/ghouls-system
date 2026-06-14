@@ -22,6 +22,7 @@ swarmBus.on('ceo:directive', async (rawInstruction) => {
 
     try {
         // 1. HYBRID EDGE ROUTING INTERCEPT
+        // Instantly analyze intent using zero-cost, high-speed edge intelligence models
         await routeCognitiveTask('fast', `Parse intent from payload: ${rawInstruction}`);
         
         // Default execution metrics configuration
@@ -73,9 +74,6 @@ swarmBus.on('ceo:directive', async (rawInstruction) => {
         // 3. DYNAMIC GRAPH ROUTING (Fast-Track vs Generation)
         if (cachedCode) {
             swarmBus.emit('agent:thought', 'CEO_Agent', `[MEMORY HIT]: Bypassing cognitive generation and QA phases. Initiating Fast-Track execution.`);
-            
-            // Inject the cached code into the Dev Agent's shared memory immediately
-            swarmBus.emit('orchestrator:task_complete', { key: 'cached_code', value: cachedCode });
 
             generatedPlan = {
                 projectName: projectName,
@@ -86,7 +84,8 @@ swarmBus.on('ceo:directive', async (rawInstruction) => {
                         action: 'WRITE_ISOLATED_FILE',
                         fileName: outputFilename,
                         filename: outputFilename,
-                        prompt: `OUTPUT EXACTLY THIS CACHED CODE, NO CHANGES: \n\n ${cachedCode}`
+                        // --- THE FIX: STRICT FORMATTING ENFORCEMENT ---
+                        prompt: `OUTPUT EXACTLY THIS CACHED CODE. DO NOT USE MARKDOWN FORMATTING OR BACKTICKS. RETURN RAW TEXT ONLY: \n\n ${cachedCode}`
                     },
                     {
                         step: 2,
