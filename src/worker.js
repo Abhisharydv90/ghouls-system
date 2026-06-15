@@ -3,6 +3,7 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import dotenv from 'dotenv';
 dotenv.config();
 
+// Initialize the Flash model for high-speed coding
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const ai = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
@@ -12,6 +13,7 @@ class DynamicWorkerPool {
         this.interceptBus();
     }
 
+    // Bulletproof Interceptor: Catches ANY agent execution call instantly
     interceptBus() {
         const originalEmit = swarmBus.emit;
         const self = this;
@@ -26,9 +28,11 @@ class DynamicWorkerPool {
     }
 
     registerWorker(roleName) {
+        // Prevent duplicate brains if the CEO hires the same role twice
         if (this.activeWorkers.has(roleName)) return;
         this.activeWorkers.add(roleName);
 
+        // Create a dedicated listener for this newly hired role
         swarmBus.on(`agent:execute:${roleName}`, async (payload) => {
             swarmBus.emit('agent:thought', roleName, `Ingesting task parameters: ${payload.task?.description || 'Executing system blueprint architecture.'}`);
 
@@ -57,15 +61,15 @@ class DynamicWorkerPool {
                     const result = await ai.generateContent(prompt);
                     let codeOutput = result.response.text();
                     
-                    codeOutput = codeOutput.replace(/```html/g, '').replace(/
-```javascript/g, '').replace(/```bash/g, '').replace(/```/g, '').trim();
+                    // SAFE SCRUBBER: Uses replaceAll instead of regex to prevent file breaking on deploy
+                    codeOutput = codeOutput.replaceAll('```html', '').replaceAll('```javascript', '').replaceAll('```bash', '').replaceAll('```', '').trim();
 
                     swarmBus.emit('orchestrator:step_complete', {
                         agent: roleName,
                         output: codeOutput
                     });
                     
-                    success = true;
+                    success = true; // Break the loop if successful
 
                 } catch (error) {
                     retries--;
@@ -84,7 +88,7 @@ class DynamicWorkerPool {
                         // DYNAMIC PARSER: Look for "Please retry in X.XXXXs" in the Google API error message
                         const match = error.message.match(/Please retry in (\d+\.?\d*)s/);
                         if (match && match[1]) {
-                            // Extract seconds, convert to MS, and add a 2.5-second safety safety buffer
+                            // Extract seconds, convert to MS, and add a 2.5-second safety buffer
                             waitTime = (parseFloat(match[1]) + 2.5) * 1000;
                             swarmBus.emit('agent:thought', roleName, `[QUOTA BRAKE]: Rate limit hit. Holding pipeline execution for ${Math.ceil(parseFloat(match[1]) + 2.5)}s to reset API windows...`);
                         } else if (error.message.includes('429')) {
