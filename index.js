@@ -19,6 +19,7 @@ import './src/executor.js';
 // --- NEW V6.0 MODULES IMPORTED ---
 import './src/architect.js';
 import './src/visionQa.js';
+import './src/worker.js';
 
 const app = express();
 app.use(cors());
