@@ -32,7 +32,8 @@ class DynamicWorkerPool {
         swarmBus.on(`agent:execute:${roleName}`, async (payload) => {
             swarmBus.emit('agent:thought', roleName, `Ingesting task parameters: ${payload.task?.description || 'Executing system blueprint architecture.'}`);
 
-            let retries = 3;
+            // Increased default retries to 5 to survive long sequential swarm builds
+            let retries = 5; 
             let success = false;
 
             while (retries > 0 && !success) {
@@ -43,12 +44,12 @@ class DynamicWorkerPool {
                     
                     CRITICAL INSTRUCTIONS:
                     1. If the task is UI/Frontend related, output ONLY valid, raw HTML starting with <html>. Use Tailwind CSS via CDN (<script src="https://cdn.tailwindcss.com"></script>) and Lucide Icons. Apply dark mode (bg-gray-950) and glassmorphism.
-                    2. If the task is Backend, Database, or CLI initialization (like npx create-next-app), output the raw code or shell commands clearly.
-                    3. DO NOT wrap your response in markdown code blocks (like \`\`\`html or \`\`\`bash). Do not include conversational filler. Just the code.
+                    2. If the task is Backend, Database, or CLI initialization, output the raw code or shell commands clearly.
+                    3. DO NOT wrap your response in markdown code blocks (like \`\`\`html or \`\`\`bash). Just the clean output.
                     `;
 
-                    if (retries < 3) {
-                        swarmBus.emit('agent:thought', roleName, `[AUTO-RETRY ENGINE]: Bypassing API bottleneck. Re-attempting execution... (${retries} attempts left)`);
+                    if (retries < 5) {
+                        swarmBus.emit('agent:thought', roleName, `[RETRY LOOP]: Attempting execution path re-entry... (${retries} attempts remaining)`);
                     } else {
                         swarmBus.emit('agent:thought', roleName, `Compiling architecture execution via Gemini Engine...`);
                     }
@@ -56,20 +57,19 @@ class DynamicWorkerPool {
                     const result = await ai.generateContent(prompt);
                     let codeOutput = result.response.text();
                     
-                    // Scrub out any rogue markdown the LLM tries to sneak in
-                    codeOutput = codeOutput.replace(/```html/g, '').replace(/```javascript/g, '').replace(/```bash/g, '').replace(/```/g, '').trim();
+                    codeOutput = codeOutput.replace(/```html/g, '').replace(/
+```javascript/g, '').replace(/```bash/g, '').replace(/```/g, '').trim();
 
                     swarmBus.emit('orchestrator:step_complete', {
                         agent: roleName,
                         output: codeOutput
                     });
                     
-                    success = true; // Break the loop if successful
+                    success = true;
 
                 } catch (error) {
                     retries--;
-                    // Explicitly broadcast the exact API error to the frontend terminal
-                    swarmBus.emit('agent:log', roleName, `[API ERROR CAUGHT]: ${error.message}`);
+                    swarmBus.emit('agent:log', roleName, `[API CONGESTION]: ${error.message}`);
 
                     if (retries === 0) {
                         swarmBus.emit('orchestrator:step_failed', {
@@ -78,8 +78,23 @@ class DynamicWorkerPool {
                             file: 'dynamic_generation_error'
                         });
                     } else {
-                        // Exponential backoff: Wait 2.5 seconds before hitting the API again
-                        await new Promise(res => setTimeout(res, 2500));
+                        // Smart backoff default
+                        let waitTime = 3000; 
+
+                        // DYNAMIC PARSER: Look for "Please retry in X.XXXXs" in the Google API error message
+                        const match = error.message.match(/Please retry in (\d+\.?\d*)s/);
+                        if (match && match[1]) {
+                            // Extract seconds, convert to MS, and add a 2.5-second safety safety buffer
+                            waitTime = (parseFloat(match[1]) + 2.5) * 1000;
+                            swarmBus.emit('agent:thought', roleName, `[QUOTA BRAKE]: Rate limit hit. Holding pipeline execution for ${Math.ceil(parseFloat(match[1]) + 2.5)}s to reset API windows...`);
+                        } else if (error.message.includes('429')) {
+                            // Fallback if regex fails but status is still a 429 rate limit
+                            waitTime = 30000;
+                            swarmBus.emit('agent:thought', roleName, `[QUOTA BRAKE]: Rate limit hit. Using 30s safety fallback pause...`);
+                        }
+
+                        // Sleep the current worker thread
+                        await new Promise(res => setTimeout(res, waitTime));
                     }
                 }
             }
