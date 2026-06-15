@@ -1,4 +1,6 @@
 import swarmBus from './swarmBus.js';
+import fs from 'fs';
+import path from 'path';
 
 // --- HYBRID COGNITIVE ROUTING ENGINE ---
 async function routeCognitiveTask(taskType, contextPrompt) {
@@ -91,7 +93,20 @@ class CEOAgent {
                     estCost = 0.00005;
                     this.initializeWorkspace(fastTrackRoadmap);
                 } else {
-                    // No cache found -> Escalate processing over to the Architect Agent to parse the PRD fully
+                    // --- THE CLOUD ENVIRONMENT WORKSPACE FIX ---
+                    swarmBus.emit('agent:thought', 'CEO_Agent', `[MEMORY MISS]: Generating fresh workspace environment for Architect Agent.`);
+                    
+                    const workspacePath = path.join(process.cwd(), 'workspace', projectName);
+                    
+                    // Force synchronous directory generation inside the volatile sandboxed container
+                    if (!fs.existsSync(workspacePath)) {
+                        fs.mkdirSync(workspacePath, { recursive: true });
+                    }
+                    
+                    // Hydrate raw directive as target requirements specification for pipeline consumption
+                    fs.writeFileSync(path.join(workspacePath, 'requirements.txt'), rawInstruction);
+
+                    // Escalating complex task planning to high-tier heavy reasoning models
                     await routeCognitiveTask('heavy', `Generate multi-agent graph execution vectors for project space: ${projectName}`);
                     swarmBus.emit('architect:parse_prd', { projectName, prdFileName: 'requirements.txt' });
                 }
@@ -120,7 +135,8 @@ class CEOAgent {
                 description: currentTask.description,
                 status: 'COMPLETED',
                 explanation: `Agent [${data.agent}] successfully completed the task execution. Output validated cleanly.`,
-                timestamp: new Date().toISOString()
+                timestamp: new Date().toISOString(),
+                stdout: data.output || null
             });
 
             this.currentStepIndex++;
