@@ -58,7 +58,7 @@ swarmBus.on('agent:execute:Vision_QA_Agent', async (payload) => {
         If the UI is broken or ugly, return exactly: "FAIL", followed by a strict, detailed explanation of what CSS/HTML the Dev Agent needs to fix.`;
 
         const response = await ai.models.generateContent({
-            model: 'gemini-2.5-pro', // Multimodal model
+            model: 'gemini-2.5-flash', // Multimodal model
             contents: [
                 { text: systemPrompt },
                 {

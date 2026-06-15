@@ -35,7 +35,7 @@ swarmBus.on('architect:parse_prd', async (payload) => {
         }`;
 
         const response = await ai.models.generateContent({
-            model: 'gemini-2.5-pro',
+            model: 'gemini-2.5-flash',
             contents: `Parse this PRD and generate the system roadmap:\n\n${prdContent}`,
             config: {
                 systemInstruction: systemInstruction,
