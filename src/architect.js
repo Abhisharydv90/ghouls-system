@@ -18,46 +18,66 @@ swarmBus.on('architect:parse_prd', async (payload) => {
     }
 
     const prdContent = fs.readFileSync(prdPath, 'utf-8');
+    
+    swarmBus.emit('agent:thought', 'Architect_Agent', 'Analyzing structural dependencies using deep semantic reasoning...');
 
-    try {
-        swarmBus.emit('agent:thought', 'Architect_Agent', 'Analyzing structural dependencies using deep semantic reasoning...');
+    const systemInstruction = `You are the Lead Systems Architect Agent for Ghouls OS. 
+    Your task is to analyze a raw Product Requirement Document (PRD) and break it down into an explicit, sequential JSON execution graph.
+    Identify the technical stack required, the database models, backend API routes, and frontend UI views.
+    Return ONLY a clean JSON object following this exact schema:
+    {
+      "projectName": "string",
+      "requiredSpecialists": ["string"],
+      "executionGraph": [
+        { "step": 1, "agent": "string", "action": "WRITE_FILE", "file": "string", "description": "string" }
+      ]
+    }`;
 
-        const systemInstruction = `You are the Lead Systems Architect Agent for Ghouls OS. 
-        Your task is to analyze a raw Product Requirement Document (PRD) and break it down into an explicit, sequential JSON execution graph.
-        Identify the technical stack required, the database models, backend API routes, and frontend UI views.
-        Return ONLY a clean JSON object following this exact schema:
-        {
-          "projectName": "string",
-          "requiredSpecialists": ["string"],
-          "executionGraph": [
-            { "step": 1, "agent": "string", "action": "WRITE_FILE", "file": "string", "description": "string" }
-          ]
-        }`;
+    // --- START AUTO-RETRY ARMOR ---
+    let retries = 3;
+    let success = false;
 
-        const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
-            contents: `Parse this PRD and generate the system roadmap:\n\n${prdContent}`,
-            config: {
-                systemInstruction: systemInstruction,
-                responseMimeType: 'application/json'
+    while (retries > 0 && !success) {
+        try {
+            if (retries < 3) {
+                swarmBus.emit('agent:thought', 'Architect_Agent', `[AUTO-RETRY ENGINE]: Cloud servers busy (503). Re-attempting deep semantic reasoning... (${retries} attempts left)`);
             }
-        });
 
-        const roadmap = JSON.parse(response.text);
-        swarmBus.emit('agent:thought', 'Architect_Agent', `[SUCCESS]: System architecture mapped. Generated ${roadmap.executionGraph.length} blueprint steps.`);
+            const response = await ai.models.generateContent({
+                model: 'gemini-2.5-flash',
+                contents: `Parse this PRD and generate the system roadmap:\n\n${prdContent}`,
+                config: {
+                    systemInstruction: systemInstruction,
+                    responseMimeType: 'application/json'
+                }
+            });
 
-        // Stream telemetry to frontend timeline visualizer
-        swarmBus.emit('telemetry:pipeline_update', {
-            status: 'ARCHITECT_COMPLETE',
-            agent: 'Architect_Agent',
-            timestamp: new Date().toISOString(),
-            roadmap: roadmap
-        });
+            const roadmap = JSON.parse(response.text);
+            swarmBus.emit('agent:thought', 'Architect_Agent', `[SUCCESS]: System architecture mapped. Generated ${roadmap.executionGraph.length} blueprint steps.`);
 
-        // Handoff to CEO to begin workforce spawning and step execution
-        swarmBus.emit('ceo:initialize_workspace', roadmap);
+            // Stream telemetry to frontend timeline visualizer
+            swarmBus.emit('telemetry:pipeline_update', {
+                status: 'ARCHITECT_COMPLETE',
+                agent: 'Architect_Agent',
+                timestamp: new Date().toISOString(),
+                roadmap: roadmap
+            });
 
-    } catch (error) {
-        swarmBus.emit('agent:thought', 'Architect_Agent', `[FATAL PARSING ERROR]: ${error.message}`);
+            // Handoff to CEO to begin workforce spawning and step execution
+            swarmBus.emit('ceo:initialize_workspace', roadmap);
+            
+            success = true; // Break the loop on success
+
+        } catch (error) {
+            retries--;
+            
+            if (retries === 0) {
+                // We completely ran out of retries, throw the fatal error
+                swarmBus.emit('agent:thought', 'Architect_Agent', `[FATAL PARSING ERROR]: ${error.message}`);
+            } else {
+                // Exponential backoff: Wait 3 seconds before hitting the API again
+                await new Promise(res => setTimeout(res, 3000));
+            }
+        }
     }
 });
