@@ -66,10 +66,8 @@ export default function Dashboard() {
       );
 
       // --- THE PREVIEW CAPTURE LOGIC ---
-      // If the QA Agent or Dev Agent broadcasts compiled HTML, catch it and set it to the preview window
       if (data.agent === 'Dev_Agent' && data.stdout && data.stdout.includes('<html')) {
         setPreviewHtml(data.stdout);
-        // Autonomously flip to preview mode when UI code is generated
         setViewMode('preview'); 
       }
     });
@@ -83,8 +81,8 @@ export default function Dashboard() {
     socketRef.current.emit('command:execute', { command: directive });
     setDirective('');
     setPipelineSteps([]); 
-    setPreviewHtml(''); // Clear old preview
-    setViewMode('terminal'); // Default back to terminal
+    setPreviewHtml(''); 
+    setViewMode('terminal'); 
   };
 
   const handleAuthorize = () => {
@@ -94,16 +92,17 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="flex flex-col h-screen w-full p-6 bg-black font-mono selection:bg-green-500/30 selection:text-green-300 overflow-hidden">
+    // RESPONSIVE FIX: Changed 'h-screen overflow-hidden' to 'min-h-screen lg:h-screen overflow-y-auto lg:overflow-hidden'
+    <div className="flex flex-col min-h-screen lg:h-screen w-full p-4 sm:p-6 bg-black font-mono selection:bg-green-500/30 selection:text-green-300 overflow-y-auto lg:overflow-hidden">
       
       {/* Upper Status Ribbon */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 border-b border-green-900/30 pb-4 gap-4 shrink-0">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 border-b border-green-900/30 pb-4 gap-4 shrink-0 mt-2 lg:mt-0">
         <div>
           <h2 className="text-xl font-bold text-green-500 tracking-wider flex items-center gap-2">
             <Activity className="w-5 h-5 text-green-500 animate-pulse" />
             Neural Bridge Interface
           </h2>
-          <p className="text-xs text-gray-500 mt-0.5">Localhost Core Loop Runtime v6.0.0</p>
+          <p className="text-xs text-gray-500 mt-0.5">Cloud Core Loop Runtime v6.0.0</p>
         </div>
         <div className="flex items-center gap-3">
           <div className={`flex items-center px-3 py-1.5 rounded text-xs font-semibold tracking-widest border ${isConnected ? 'bg-green-950/30 border-green-500/30 text-green-400' : 'bg-red-950/30 border-red-500/30 text-red-400'}`}>
@@ -135,11 +134,13 @@ export default function Dashboard() {
       </div>
 
       {/* MAIN 3-PANEL COMMAND CENTER */}
-      <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-4 mb-6 min-h-0 overflow-hidden">
+      {/* RESPONSIVE FIX: Used 'flex flex-col lg:grid' to force vertical stacking safely on mobile */}
+      <div className="flex-1 flex flex-col lg:grid lg:grid-cols-12 gap-4 mb-6 lg:min-h-0 lg:overflow-hidden">
         
         {/* PANEL 1: ACTIVE SWARM GRAPH */}
-        <div className="lg:col-span-3 border border-green-900/20 bg-gray-950/20 rounded-xl overflow-hidden shadow-[inset_0_0_30px_rgba(0,0,0,0.8)] backdrop-blur-sm flex flex-col">
-          <div className="bg-gray-950 px-4 py-2.5 border-b border-gray-900 flex items-center text-xs text-green-500 font-bold uppercase tracking-widest">
+        {/* RESPONSIVE FIX: Fixed height of h-[300px] on mobile so it doesn't crush */}
+        <div className="lg:col-span-3 border border-green-900/20 bg-gray-950/20 rounded-xl overflow-hidden shadow-[inset_0_0_30px_rgba(0,0,0,0.8)] backdrop-blur-sm flex flex-col h-[300px] lg:h-auto">
+          <div className="bg-gray-950 px-4 py-2.5 border-b border-gray-900 flex items-center text-xs text-green-500 font-bold uppercase tracking-widest shrink-0">
             <Activity className="w-4 h-4 mr-2" /> Swarm Nodes
           </div>
           <div className="flex-1 p-4 overflow-y-auto space-y-3 scrollbar-thin">
@@ -163,17 +164,16 @@ export default function Dashboard() {
         </div>
 
         {/* PANEL 2: RAW TERMINAL STREAM OR LIVE PREVIEW */}
-        <div className="lg:col-span-6 border border-green-900/20 bg-gray-950/20 rounded-xl overflow-hidden shadow-[inset_0_0_30px_rgba(0,0,0,0.8)] backdrop-blur-sm flex flex-col relative">
+        {/* RESPONSIVE FIX: Taller h-[400px] on mobile to read logs easily */}
+        <div className="lg:col-span-6 border border-green-900/20 bg-gray-950/20 rounded-xl overflow-hidden shadow-[inset_0_0_30px_rgba(0,0,0,0.8)] backdrop-blur-sm flex flex-col relative h-[400px] lg:h-auto">
           
-          {/* Toggle Header */}
-          <div className="bg-gray-950 px-4 py-2 border-b border-gray-900 flex items-center justify-between text-xs text-gray-400 shrink-0 z-10">
+          <div className="bg-gray-950 px-4 py-2 border-b border-gray-900 flex flex-wrap gap-2 items-center justify-between text-xs text-gray-400 shrink-0 z-10">
             <div className="flex items-center gap-2">
               {viewMode === 'terminal' ? <Terminal className="w-4 h-4 text-green-500" /> : <MonitorPlay className="w-4 h-4 text-blue-400" />}
-              <span>{viewMode === 'terminal' ? 'ghouls_runtime_console.sh' : 'live_render_preview.jsx'}</span>
+              <span className="truncate max-w-[150px] sm:max-w-none">{viewMode === 'terminal' ? 'ghouls_runtime_console.sh' : 'live_render_preview.jsx'}</span>
             </div>
             
-            {/* The Toggle Buttons */}
-            <div className="flex bg-black rounded border border-gray-800 p-0.5">
+            <div className="flex bg-black rounded border border-gray-800 p-0.5 shrink-0">
               <button 
                 onClick={() => setViewMode('terminal')}
                 className={`px-3 py-1 rounded text-[10px] font-bold tracking-wider transition-colors ${viewMode === 'terminal' ? 'bg-green-900/50 text-green-400' : 'text-gray-500 hover:text-gray-300'}`}
@@ -184,14 +184,13 @@ export default function Dashboard() {
                 onClick={() => setViewMode('preview')}
                 className={`px-3 py-1 rounded text-[10px] font-bold tracking-wider transition-colors ${viewMode === 'preview' ? 'bg-blue-900/50 text-blue-400' : 'text-gray-500 hover:text-gray-300'}`}
               >
-                UI PREVIEW
+                PREVIEW
               </button>
             </div>
           </div>
 
-          {/* Conditional Rendering based on View Mode */}
           {viewMode === 'terminal' ? (
-            <div className="flex-1 p-6 space-y-2 overflow-y-auto text-xs sm:text-sm scrollbar-thin">
+            <div className="flex-1 p-4 sm:p-6 space-y-2 overflow-y-auto text-[11px] sm:text-sm scrollbar-thin">
               {logs.map((log) => (
                 <div key={log.id} className="leading-relaxed break-all">
                   {log.type === 'system' && <span className="text-blue-400 font-semibold">{log.text}</span>}
@@ -213,7 +212,7 @@ export default function Dashboard() {
                    sandbox="allow-scripts allow-same-origin"
                  />
                ) : (
-                 <div className="flex h-full items-center justify-center bg-gray-900 text-gray-500 text-sm italic">
+                 <div className="flex h-full items-center justify-center bg-gray-900 text-gray-500 text-xs sm:text-sm italic">
                    Awaiting frontend components to render...
                  </div>
                )}
@@ -222,8 +221,9 @@ export default function Dashboard() {
         </div>
 
         {/* PANEL 3: PIPELINE HISTORY */}
-        <div className="lg:col-span-3 border border-green-900/20 bg-gray-950/20 rounded-xl overflow-hidden shadow-[inset_0_0_30px_rgba(0,0,0,0.8)] backdrop-blur-sm flex flex-col">
-          <div className="bg-gray-950 px-4 py-2.5 border-b border-gray-900 flex items-center text-xs text-blue-400 font-bold uppercase tracking-widest">
+        {/* RESPONSIVE FIX: Fixed height of h-[300px] on mobile */}
+        <div className="lg:col-span-3 border border-green-900/20 bg-gray-950/20 rounded-xl overflow-hidden shadow-[inset_0_0_30px_rgba(0,0,0,0.8)] backdrop-blur-sm flex flex-col h-[300px] lg:h-auto">
+          <div className="bg-gray-950 px-4 py-2.5 border-b border-gray-900 flex items-center text-xs text-blue-400 font-bold uppercase tracking-widest shrink-0">
             <Eye className="w-4 h-4 mr-2" /> Pipeline
           </div>
           <div className="flex-1 p-4 overflow-y-auto scrollbar-thin">
@@ -249,18 +249,19 @@ export default function Dashboard() {
       </div>
 
       {/* Command Input & Visual Killswitch Panel */}
-      <div className="flex gap-3 items-center shrink-0">
+      {/* RESPONSIVE FIX: Added pb-8 on mobile to avoid the iOS swipe bar */}
+      <div className="flex flex-col sm:flex-row gap-3 items-center shrink-0 pb-8 lg:pb-0">
         {isAwaitingAuth ? (
           <button 
             onClick={handleAuthorize}
             className="w-full bg-red-950/60 text-red-500 border border-red-500/50 py-4 rounded-xl hover:bg-red-900/60 hover:text-red-300 font-bold tracking-widest transition-all shadow-[0_0_20px_rgba(239,68,68,0.3)] flex items-center justify-center gap-3"
           >
             <AlertTriangle className="w-5 h-5" />
-            AUTHORIZE PAYLOAD EXECUTION
+            AUTHORIZE PAYLOAD
           </button>
         ) : (
           <>
-            <div className="relative flex-1">
+            <div className="relative flex-1 w-full">
               <span className="absolute left-4 top-1/2 -translate-y-1/2 text-green-600 font-bold text-base select-none">$</span>
               <input 
                 type="text" 
@@ -268,14 +269,14 @@ export default function Dashboard() {
                 onChange={(e) => setDirective(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleExecute()}
                 disabled={!isConnected}
-                placeholder={isConnected ? "Enter architecture PRD string or system command..." : "Awaiting engine connection..."} 
+                placeholder={isConnected ? "Enter directive..." : "Awaiting connection..."} 
                 className="w-full bg-gray-950/60 border border-green-900/40 text-green-400 pl-9 pr-4 py-4 rounded-xl focus:outline-none focus:border-green-500/80 focus:ring-1 focus:ring-green-500/30 font-mono transition-all placeholder:text-gray-700 text-sm disabled:opacity-50"
               />
             </div>
             <button 
               onClick={handleExecute}
               disabled={!isConnected}
-              className="bg-green-950/40 text-green-400 border border-green-500/40 px-6 sm:px-10 h-[54px] rounded-xl hover:bg-green-900/40 hover:text-green-200 active:scale-[0.98] font-bold tracking-widest transition-all text-xs sm:text-sm flex items-center justify-center gap-2 shrink-0 group disabled:opacity-50 disabled:hover:bg-green-950/40"
+              className="w-full sm:w-auto bg-green-950/40 text-green-400 border border-green-500/40 px-6 sm:px-10 h-[54px] rounded-xl hover:bg-green-900/40 hover:text-green-200 active:scale-[0.98] font-bold tracking-widest transition-all text-xs sm:text-sm flex items-center justify-center gap-2 shrink-0 group disabled:opacity-50 disabled:hover:bg-green-950/40"
             >
               EXECUTE
               <Send className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
