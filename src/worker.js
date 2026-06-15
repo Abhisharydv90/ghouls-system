@@ -12,7 +12,6 @@ class DynamicWorkerPool {
         this.interceptBus();
     }
 
-    // Bulletproof Interceptor: Catches ANY agent execution call instantly
     interceptBus() {
         const originalEmit = swarmBus.emit;
         const self = this;
@@ -32,39 +31,57 @@ class DynamicWorkerPool {
 
         swarmBus.on(`agent:execute:${roleName}`, async (payload) => {
             swarmBus.emit('agent:thought', roleName, `Ingesting task parameters: ${payload.task?.description || 'Executing system blueprint architecture.'}`);
-            
-            try {
-                const prompt = `
-                You are acting as the specialized ${roleName} for the project: ${payload.project || 'Lead Gen SaaS'}.
-                Your current task: ${payload.task?.description || 'Generate structural blueprints or code foundations.'}
-                
-                CRITICAL INSTRUCTION FOR UI PREVIEW ENGINE: 
-                If you are generating UI or layout code, you MUST output ONLY valid, raw HTML. 
-                Include Tailwind CSS via CDN (<script src="https://cdn.tailwindcss.com"></script>) in the <head>.
-                Include Lucide Icons via CDN or use standard SVGs.
-                Apply dark mode (bg-gray-950) and glassmorphism (bg-opacity-20, backdrop-blur) as requested.
-                
-                DO NOT wrap your response in markdown code blocks (e.g., \`\`\`html). Return ONLY the raw code string so the iframe preview can render it immediately.
-                `;
 
-                swarmBus.emit('agent:thought', roleName, `Compiling architecture execution via Gemini Engine...`);
+            let retries = 3;
+            let success = false;
 
-                const result = await ai.generateContent(prompt);
-                let codeOutput = result.response.text();
-                
-                codeOutput = codeOutput.replace(/```html/g, '').replace(/```javascript/g, '').replace(/```/g, '').trim();
+            while (retries > 0 && !success) {
+                try {
+                    const prompt = `
+                    You are acting as the specialized ${roleName} for the project: ${payload.project || 'Lead Gen SaaS'}.
+                    Your current task: ${payload.task?.description || 'Generate structural blueprints or code foundations.'}
+                    
+                    CRITICAL INSTRUCTIONS:
+                    1. If the task is UI/Frontend related, output ONLY valid, raw HTML starting with <html>. Use Tailwind CSS via CDN (<script src="https://cdn.tailwindcss.com"></script>) and Lucide Icons. Apply dark mode (bg-gray-950) and glassmorphism.
+                    2. If the task is Backend, Database, or CLI initialization (like npx create-next-app), output the raw code or shell commands clearly.
+                    3. DO NOT wrap your response in markdown code blocks (like \`\`\`html or \`\`\`bash). Do not include conversational filler. Just the code.
+                    `;
 
-                swarmBus.emit('orchestrator:step_complete', {
-                    agent: roleName,
-                    output: codeOutput
-                });
+                    if (retries < 3) {
+                        swarmBus.emit('agent:thought', roleName, `[AUTO-RETRY ENGINE]: Bypassing API bottleneck. Re-attempting execution... (${retries} attempts left)`);
+                    } else {
+                        swarmBus.emit('agent:thought', roleName, `Compiling architecture execution via Gemini Engine...`);
+                    }
 
-            } catch (error) {
-                swarmBus.emit('orchestrator:step_failed', {
-                    agent: roleName,
-                    error: error.message,
-                    file: 'dynamic_generation_error'
-                });
+                    const result = await ai.generateContent(prompt);
+                    let codeOutput = result.response.text();
+                    
+                    // Scrub out any rogue markdown the LLM tries to sneak in
+                    codeOutput = codeOutput.replace(/```html/g, '').replace(/```javascript/g, '').replace(/```bash/g, '').replace(/```/g, '').trim();
+
+                    swarmBus.emit('orchestrator:step_complete', {
+                        agent: roleName,
+                        output: codeOutput
+                    });
+                    
+                    success = true; // Break the loop if successful
+
+                } catch (error) {
+                    retries--;
+                    // Explicitly broadcast the exact API error to the frontend terminal
+                    swarmBus.emit('agent:log', roleName, `[API ERROR CAUGHT]: ${error.message}`);
+
+                    if (retries === 0) {
+                        swarmBus.emit('orchestrator:step_failed', {
+                            agent: roleName,
+                            error: error.message,
+                            file: 'dynamic_generation_error'
+                        });
+                    } else {
+                        // Exponential backoff: Wait 2.5 seconds before hitting the API again
+                        await new Promise(res => setTimeout(res, 2500));
+                    }
+                }
             }
         });
     }
