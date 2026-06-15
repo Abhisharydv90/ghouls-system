@@ -6,9 +6,9 @@ import fs from 'fs';
 import path from 'path';
 import schedule from 'node-schedule';
 
-// Load system runtime components
+// Load system runtime components (The Brains)
 import swarmBus from './src/swarmBus.js';
-import './src/orchestrator.js';  // <--- THE MISSING BRAIN HAS BEEN RECONNECTED
+import './src/orchestrator.js';
 import './src/memory.js';
 import './src/qa.js';
 import './src/ceo.js';
@@ -16,6 +16,9 @@ import './src/browser.js';
 import './src/dev.js';
 import './src/sysops.js';
 import './src/executor.js';
+// --- NEW V6.0 MODULES IMPORTED ---
+import './src/architect.js';
+import './src/visionQa.js';
 
 const app = express();
 app.use(cors());
@@ -31,7 +34,7 @@ if (!fs.existsSync(historyFile)) {
     fs.writeFileSync(historyFile, JSON.stringify([]));
 }
 
-function writeToHistory(type, agent, message, durationMs = null, estCost = null) {
+function writeToHistory(type, agent, message, durationMs = null, estCost = null, extraData = null) {
     try {
         const history = JSON.parse(fs.readFileSync(historyFile, 'utf8'));
         const newEntry = {
@@ -40,7 +43,8 @@ function writeToHistory(type, agent, message, durationMs = null, estCost = null)
             type: type,
             agent: agent,
             message: message,
-            metrics: durationMs ? { latency: `${durationMs}ms`, cost: `$${estCost}` } : null
+            metrics: durationMs ? { latency: `${durationMs}ms`, cost: `$${estCost}` } : null,
+            ...extraData // Append telemetry data like stdout/stderr or liveUrls
         };
         history.unshift(newEntry);
         if (history.length > 500) history.pop();
@@ -50,7 +54,7 @@ function writeToHistory(type, agent, message, durationMs = null, estCost = null)
     }
 }
 
-// --- SWARMBUS LISTENERS ---
+// --- SWARMBUS LISTENERS (PIPING TO WEBSOCKETS) ---
 swarmBus.on('agent:thought', (agent, message, duration = null, cost = null) => {
     io.emit('agent:thought', { agent, message });
     writeToHistory('thought', agent, message, duration, cost);
@@ -59,6 +63,17 @@ swarmBus.on('agent:thought', (agent, message, duration = null, cost = null) => {
 swarmBus.on('agent:log', (agent, message, duration = null, cost = null) => {
     io.emit('agent:log', { agent, message });
     writeToHistory('log', agent, message, duration, cost);
+});
+
+// --- NEW: TELEMETRY STREAMING FOR FRONTEND UI ---
+swarmBus.on('telemetry:pipeline_update', (data) => {
+    io.emit('telemetry:pipeline_update', data);
+    writeToHistory('telemetry', data.agent, data.description || `Pipeline status: ${data.status}`, null, null, data);
+});
+
+swarmBus.on('telemetry:node_spawned', (data) => {
+    io.emit('telemetry:node_spawned', data);
+    writeToHistory('telemetry', data.agent, `Node provisioned: ${data.agent}`, null, null, data);
 });
 
 swarmBus.on('gateway:request_ui', (task) => {
@@ -159,7 +174,7 @@ io.on('connection', (socket) => {
 const PORT = process.env.PORT || 4000;
 httpServer.listen(PORT, '0.0.0.0', () => {
     console.log(`\n==================================================`);
-    console.log(`       GHOULS ENGINE v1.0.0 - PRODUCTION RUNTIME   `);
+    console.log(`       GHOULS OS ENGINE v6.0.0 - LIVE RUNTIME     `);
     console.log(`==================================================`);
     console.log(`[SYS]: Core heartbeat initialized. Engine bound to Port ${PORT}`);
 });
