@@ -33,14 +33,14 @@ swarmBus.on('architect:parse_prd', async (payload) => {
       ]
     }`;
 
-    // --- START AUTO-RETRY ARMOR ---
-    let retries = 3;
+    // --- SMART AUTO-RETRY ARMOR ---
+    let retries = 5; // Bumped to 5 to match workers
     let success = false;
 
     while (retries > 0 && !success) {
         try {
-            if (retries < 3) {
-                swarmBus.emit('agent:thought', 'Architect_Agent', `[AUTO-RETRY ENGINE]: Cloud servers busy (503). Re-attempting deep semantic reasoning... (${retries} attempts left)`);
+            if (retries < 5) {
+                swarmBus.emit('agent:thought', 'Architect_Agent', `[RETRY LOOP]: Attempting execution path re-entry... (${retries} attempts remaining)`);
             }
 
             const response = await ai.models.generateContent({
@@ -66,7 +66,7 @@ swarmBus.on('architect:parse_prd', async (payload) => {
             // Handoff to CEO to begin workforce spawning and step execution
             swarmBus.emit('ceo:initialize_workspace', roadmap);
             
-            success = true; // Break the loop on success
+            success = true;
 
         } catch (error) {
             retries--;
@@ -75,8 +75,20 @@ swarmBus.on('architect:parse_prd', async (payload) => {
                 // We completely ran out of retries, throw the fatal error
                 swarmBus.emit('agent:thought', 'Architect_Agent', `[FATAL PARSING ERROR]: ${error.message}`);
             } else {
-                // Exponential backoff: Wait 3 seconds before hitting the API again
-                await new Promise(res => setTimeout(res, 3000));
+                // --- DYNAMIC RATE-LIMIT PARSER ---
+                let waitTime = 3000; 
+                const match = error.message.match(/Please retry in (\d+\.?\d*)s/);
+                
+                if (match && match[1]) {
+                    waitTime = (parseFloat(match[1]) + 2.5) * 1000;
+                    swarmBus.emit('agent:thought', 'Architect_Agent', `[QUOTA BRAKE]: Rate limit hit. Holding pipeline execution for ${Math.ceil(parseFloat(match[1]) + 2.5)}s to reset API windows...`);
+                } else if (error.message.includes('429')) {
+                    waitTime = 30000;
+                    swarmBus.emit('agent:thought', 'Architect_Agent', `[QUOTA BRAKE]: Rate limit hit. Using 30s safety fallback pause...`);
+                }
+
+                // Sleep the Architect thread
+                await new Promise(res => setTimeout(res, waitTime));
             }
         }
     }
