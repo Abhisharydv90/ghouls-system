@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from 'react';
-import { Terminal, Cpu, ShieldAlert, Activity, Send, AlertTriangle, CheckCircle, XCircle, Eye } from 'lucide-react';
+import { Terminal, Cpu, ShieldAlert, Activity, Send, AlertTriangle, CheckCircle, XCircle, Eye, MonitorPlay } from 'lucide-react';
 import { io } from 'socket.io-client';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -9,6 +9,10 @@ export default function Dashboard() {
   const [directive, setDirective] = useState('');
   const [isConnected, setIsConnected] = useState(false);
   const [isAwaitingAuth, setIsAwaitingAuth] = useState(false);
+  
+  // View Toggle State (Terminal vs Preview)
+  const [viewMode, setViewMode] = useState('terminal'); // 'terminal' | 'preview'
+  const [previewHtml, setPreviewHtml] = useState(''); // Stores the raw code to render
   
   // Telemetry & Log State
   const [logs, setLogs] = useState([
@@ -20,13 +24,11 @@ export default function Dashboard() {
   const terminalEndRef = useRef(null);
   const socketRef = useRef(null);
 
-  // Auto-scroll terminal
   useEffect(() => {
     terminalEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [logs]);
+  }, [logs, viewMode]);
 
   useEffect(() => {
-    // CLOUD DEPLOYMENT FIX: Dynamic Environment Variable Routing
     const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://127.0.0.1:4000';
     socketRef.current = io(backendUrl);
 
@@ -40,40 +42,36 @@ export default function Dashboard() {
       setLogs(prev => [...prev, { id: Date.now(), type: 'warning', text: 'WARNING: Connection to Engine lost. Attempting to reconnect...' }]);
     });
 
-    // V4 Logs & Thoughts
     socketRef.current.on('agent:thought', (data) => {
       setLogs(prev => [...prev, { id: Date.now() + Math.random(), type: 'info', text: `[${data.agent}]: ${data.message}` }]);
-      if (data.message.includes('requires manual authorization') || data.message.includes('WARNING')) {
-        setIsAwaitingAuth(true);
-      }
+      if (data.message.includes('requires manual authorization')) setIsAwaitingAuth(true);
     });
 
     socketRef.current.on('agent:log', (data) => {
       setLogs(prev => [...prev, { id: Date.now() + Math.random(), type: 'success', text: `[${data.agent}]: ${data.message}` }]);
-      if (data.message.includes('requires manual authorization') || data.message.includes('WARNING')) {
-        setIsAwaitingAuth(true);
-      }
+      if (data.message.includes('requires manual authorization')) setIsAwaitingAuth(true);
     });
 
-    // V6 TELEMETRY: Dynamic Agent Spawning
     socketRef.current.on('telemetry:node_spawned', (data) => {
       setActiveNodes(prev => {
-        if (!prev.find(n => n.agent === data.agent)) {
-          return [...prev, data];
-        }
+        if (!prev.find(n => n.agent === data.agent)) return [...prev, data];
         return prev;
       });
     });
 
-    // V6 TELEMETRY: Pipeline Execution
     socketRef.current.on('telemetry:pipeline_update', (data) => {
       setPipelineSteps(prev => [data, ...prev]);
-      // Update specific node status based on the pipeline event
       setActiveNodes(prevNodes => 
-        prevNodes.map(node => 
-          node.agent === data.agent ? { ...node, status: data.status } : node
-        )
+        prevNodes.map(node => node.agent === data.agent ? { ...node, status: data.status } : node)
       );
+
+      // --- THE PREVIEW CAPTURE LOGIC ---
+      // If the QA Agent or Dev Agent broadcasts compiled HTML, catch it and set it to the preview window
+      if (data.agent === 'Dev_Agent' && data.stdout && data.stdout.includes('<html')) {
+        setPreviewHtml(data.stdout);
+        // Autonomously flip to preview mode when UI code is generated
+        setViewMode('preview'); 
+      }
     });
 
     return () => socketRef.current.disconnect();
@@ -84,8 +82,9 @@ export default function Dashboard() {
     setLogs(prev => [...prev, { id: Date.now(), type: 'user', text: `guest@ghouls-os:~$ ${directive}` }]);
     socketRef.current.emit('command:execute', { command: directive });
     setDirective('');
-    // Clear the visualizer for the new run
     setPipelineSteps([]); 
+    setPreviewHtml(''); // Clear old preview
+    setViewMode('terminal'); // Default back to terminal
   };
 
   const handleAuthorize = () => {
@@ -146,12 +145,7 @@ export default function Dashboard() {
           <div className="flex-1 p-4 overflow-y-auto space-y-3 scrollbar-thin">
             <AnimatePresence>
               {activeNodes.map((node, idx) => (
-                <motion.div 
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  key={idx} 
-                  className="bg-black border border-green-900/40 p-3 rounded flex justify-between items-center"
-                >
+                <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} key={idx} className="bg-black border border-green-900/40 p-3 rounded flex justify-between items-center">
                   <span className="text-green-400 font-semibold text-xs tracking-wider">{node.agent}</span>
                   <span className={`text-[10px] px-2 py-1 rounded font-bold tracking-widest ${
                     node.status === 'PROCESSING' ? 'bg-blue-900/40 text-blue-400 animate-pulse border border-blue-500/30' :
@@ -168,26 +162,63 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* PANEL 2: RAW TERMINAL STREAM */}
-        <div className="lg:col-span-6 border border-green-900/20 bg-gray-950/20 rounded-xl overflow-hidden shadow-[inset_0_0_30px_rgba(0,0,0,0.8)] backdrop-blur-sm flex flex-col">
-          <div className="bg-gray-950 px-4 py-2.5 border-b border-gray-900 flex items-center justify-between text-xs text-gray-400">
+        {/* PANEL 2: RAW TERMINAL STREAM OR LIVE PREVIEW */}
+        <div className="lg:col-span-6 border border-green-900/20 bg-gray-950/20 rounded-xl overflow-hidden shadow-[inset_0_0_30px_rgba(0,0,0,0.8)] backdrop-blur-sm flex flex-col relative">
+          
+          {/* Toggle Header */}
+          <div className="bg-gray-950 px-4 py-2 border-b border-gray-900 flex items-center justify-between text-xs text-gray-400 shrink-0 z-10">
             <div className="flex items-center gap-2">
-              <Terminal className="w-4 h-4 text-green-500" />
-              <span>ghouls_runtime_console.sh</span>
+              {viewMode === 'terminal' ? <Terminal className="w-4 h-4 text-green-500" /> : <MonitorPlay className="w-4 h-4 text-blue-400" />}
+              <span>{viewMode === 'terminal' ? 'ghouls_runtime_console.sh' : 'live_render_preview.jsx'}</span>
+            </div>
+            
+            {/* The Toggle Buttons */}
+            <div className="flex bg-black rounded border border-gray-800 p-0.5">
+              <button 
+                onClick={() => setViewMode('terminal')}
+                className={`px-3 py-1 rounded text-[10px] font-bold tracking-wider transition-colors ${viewMode === 'terminal' ? 'bg-green-900/50 text-green-400' : 'text-gray-500 hover:text-gray-300'}`}
+              >
+                LOGS
+              </button>
+              <button 
+                onClick={() => setViewMode('preview')}
+                className={`px-3 py-1 rounded text-[10px] font-bold tracking-wider transition-colors ${viewMode === 'preview' ? 'bg-blue-900/50 text-blue-400' : 'text-gray-500 hover:text-gray-300'}`}
+              >
+                UI PREVIEW
+              </button>
             </div>
           </div>
-          <div className="flex-1 p-6 space-y-2 overflow-y-auto text-xs sm:text-sm scrollbar-thin">
-            {logs.map((log) => (
-              <div key={log.id} className="leading-relaxed break-all">
-                {log.type === 'system' && <span className="text-blue-400 font-semibold">{log.text}</span>}
-                {log.type === 'info' && <span className="text-gray-400">{log.text}</span>}
-                {log.type === 'success' && <span className="text-green-400">✓ {log.text}</span>}
-                {log.type === 'warning' && <span className="text-red-400 font-medium">⚠️ {log.text}</span>}
-                {log.type === 'user' && <span className="text-purple-400 font-bold">{log.text}</span>}
-              </div>
-            ))}
-            <div ref={terminalEndRef} />
-          </div>
+
+          {/* Conditional Rendering based on View Mode */}
+          {viewMode === 'terminal' ? (
+            <div className="flex-1 p-6 space-y-2 overflow-y-auto text-xs sm:text-sm scrollbar-thin">
+              {logs.map((log) => (
+                <div key={log.id} className="leading-relaxed break-all">
+                  {log.type === 'system' && <span className="text-blue-400 font-semibold">{log.text}</span>}
+                  {log.type === 'info' && <span className="text-gray-400">{log.text}</span>}
+                  {log.type === 'success' && <span className="text-green-400">✓ {log.text}</span>}
+                  {log.type === 'warning' && <span className="text-red-400 font-medium">⚠️ {log.text}</span>}
+                  {log.type === 'user' && <span className="text-purple-400 font-bold">{log.text}</span>}
+                </div>
+              ))}
+              <div ref={terminalEndRef} />
+            </div>
+          ) : (
+            <div className="flex-1 w-full h-full bg-white relative">
+               {previewHtml ? (
+                 <iframe 
+                   srcDoc={previewHtml} 
+                   title="Live Preview" 
+                   className="w-full h-full border-none absolute inset-0"
+                   sandbox="allow-scripts allow-same-origin"
+                 />
+               ) : (
+                 <div className="flex h-full items-center justify-center bg-gray-900 text-gray-500 text-sm italic">
+                   Awaiting frontend components to render...
+                 </div>
+               )}
+            </div>
+          )}
         </div>
 
         {/* PANEL 3: PIPELINE HISTORY */}
@@ -199,12 +230,7 @@ export default function Dashboard() {
             <div className="space-y-4 border-l border-gray-800 ml-2 pl-4 mt-2">
               <AnimatePresence>
                 {pipelineSteps.map((step, idx) => (
-                  <motion.div 
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    key={idx} 
-                    className="relative"
-                  >
+                  <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} key={idx} className="relative">
                     <div className={`absolute -left-[21px] top-0 rounded-full bg-black ${
                       step.status === 'COMPLETED' ? 'text-green-500' : 
                       step.status === 'CRASHED' ? 'text-red-500' : 'text-blue-500'
