@@ -23,7 +23,13 @@ swarmBus.on('architect:parse_prd', async (payload) => {
 
     const systemInstruction = `You are the Lead Systems Architect Agent for Ghouls OS. 
     Your task is to analyze a raw Product Requirement Document (PRD) and break it down into an explicit, sequential JSON execution graph.
-    Identify the technical stack required, the database models, backend API routes, and frontend UI views.
+    
+    CRITICAL RATE-LIMIT CONSTRAINT: You MUST consolidate tasks to minimize downstream API requests. Do NOT generate micro-steps or separate files for individual sections. Group all related operations into massive, domain-specific milestones:
+    - Milestone 1: Design and write the core Database Schemas/Models in 1 step.
+    - Milestone 2: Implement ALL required Backend API Routes/Controllers in 1 unified step.
+    - Milestone 3: Develop the complete Frontend UI Dashboard Layout, styling, and components inside 1 single step.
+    Strictly enforce a MAXIMUM limit of 4 total steps inside your executionGraph.
+
     Return ONLY a clean JSON object following this exact schema:
     {
       "projectName": "string",
@@ -34,7 +40,7 @@ swarmBus.on('architect:parse_prd', async (payload) => {
     }`;
 
     // --- SMART AUTO-RETRY ARMOR ---
-    let retries = 5; // Bumped to 5 to match workers
+    let retries = 5; 
     let success = false;
 
     while (retries > 0 && !success) {
@@ -45,7 +51,7 @@ swarmBus.on('architect:parse_prd', async (payload) => {
 
             const response = await ai.models.generateContent({
                 model: 'gemini-2.5-flash',
-                contents: `Parse this PRD and generate the system roadmap:\n\n${prdContent}`,
+                contents: `Parse this PRD and generate the consolidated system roadmap:\n\n${prdContent}`,
                 config: {
                     systemInstruction: systemInstruction,
                     responseMimeType: 'application/json'
@@ -53,7 +59,7 @@ swarmBus.on('architect:parse_prd', async (payload) => {
             });
 
             const roadmap = JSON.parse(response.text);
-            swarmBus.emit('agent:thought', 'Architect_Agent', `[SUCCESS]: System architecture mapped. Generated ${roadmap.executionGraph.length} blueprint steps.`);
+            swarmBus.emit('agent:thought', 'Architect_Agent', `[SUCCESS]: System architecture mapped. Generated ${roadmap.executionGraph.length} macro blueprint steps.`);
 
             // Stream telemetry to frontend timeline visualizer
             swarmBus.emit('telemetry:pipeline_update', {
