@@ -23,6 +23,21 @@ import './src/worker.js';
 
 const app = express();
 app.use(cors());
+app.use(express.json());
+
+// --- DESYNCED BACKGROUND HEALTH DIAGNOSTICS ---
+app.get('/api/status', (req, res) => {
+    res.status(200).json({
+        status: "ONLINE",
+        engine: "GHOULS_OS_v6.0.0",
+        timestamp: new Date().toISOString(),
+        loadBalancer: {
+            key_1_present: !!process.env.GEMINI_API_KEY,
+            key_2_present: !!process.env.GEMINI_API_KEY_2,
+            active_pool_size: [process.env.GEMINI_API_KEY, process.env.GEMINI_API_KEY_2].filter(Boolean).length
+        }
+    });
+});
 
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
@@ -99,8 +114,16 @@ function createRoutine(name, cronExpression, command) {
 io.on('connection', (socket) => {
     console.log(`[NEURAL BRIDGE]: Client connection mapped: ${socket.id}`);
 
+    // Anti-timeout keeping pipeline hot over proxies like Render
+    const heartbeatInterval = setInterval(() => {
+        socket.emit('telemetry:heartbeat', { ping: true, timestamp: new Date().toISOString() });
+    }, 15000);
+
     socket.on('command:execute', (data) => {
-        swarmBus.emit('ceo:directive', data.command);
+        // Detached background instantiation via event loop execution
+        setTimeout(() => {
+            swarmBus.emit('ceo:directive', data.command);
+        }, 0);
         writeToHistory('system', 'User', `Directive issued: ${data.command}`);
     });
 
@@ -167,6 +190,7 @@ io.on('connection', (socket) => {
     });
 
     socket.on('disconnect', () => {
+        clearInterval(heartbeatInterval);
         console.log(`[NEURAL BRIDGE]: Client session terminated: ${socket.id}`);
     });
 });

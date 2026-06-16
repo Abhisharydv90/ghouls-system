@@ -3,9 +3,19 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import dotenv from 'dotenv';
 dotenv.config();
 
-// Initialize the Flash model for high-speed coding
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const ai = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+// --- THE MULTI-KEY ROTATOR ---
+const apiKeys = [
+    process.env.GEMINI_API_KEY, 
+    process.env.GEMINI_API_KEY_2 // Ingesting the backup key from Render Env Vars
+].filter(Boolean); // Filters out undefined if only 1 key is present
+
+let currentKeyIndex = 0;
+
+// Dynamic wrapper to fetch the current active key model
+function getActiveAI() {
+    const genAI = new GoogleGenerativeAI(apiKeys[currentKeyIndex]);
+    return genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+}
 
 class DynamicWorkerPool {
     constructor() {
@@ -53,11 +63,13 @@ class DynamicWorkerPool {
                     `;
 
                     if (retries < 5) {
-                        swarmBus.emit('agent:thought', roleName, `[RETRY LOOP]: Attempting execution path re-entry... (${retries} attempts remaining)`);
+                        swarmBus.emit('agent:thought', roleName, `[RETRY LOOP]: Attempting execution path re-entry with Key #${currentKeyIndex + 1}... (${retries} attempts remaining)`);
                     } else {
                         swarmBus.emit('agent:thought', roleName, `Compiling architecture execution via Gemini Engine...`);
                     }
 
+                    // Dynamically fetch the active model instance before requesting
+                    const ai = getActiveAI();
                     const result = await ai.generateContent(prompt);
                     let codeOutput = result.response.text();
                     
@@ -82,23 +94,31 @@ class DynamicWorkerPool {
                             file: 'dynamic_generation_error'
                         });
                     } else {
-                        // Smart backoff default
-                        let waitTime = 3000; 
+                        // --- SMART FALLBACK: SWAP KEY INSTEAD OF SLEEPING ---
+                        if (error.message.includes('429') && apiKeys.length > 1) {
+                            swarmBus.emit('agent:thought', roleName, `[QUOTA EXHAUSTED]: Key #${currentKeyIndex + 1} burned out. Hot-swapping to backup API key...`);
+                            
+                            // Rotate to the next key in the array
+                            currentKeyIndex = (currentKeyIndex + 1) % apiKeys.length;
+                            
+                            // Tiny 1-second buffer to clear the event loop before firing again
+                            await new Promise(res => setTimeout(res, 1000));
+                        } else {
+                            // If we only have 1 key or it's a 503 error, fall back to sleep logic
+                            let waitTime = 3000; 
+                            const match = error.message.match(/Please retry in (\d+\.?\d*)s/);
+                            
+                            if (match && match[1]) {
+                                waitTime = (parseFloat(match[1]) + 2.5) * 1000;
+                                swarmBus.emit('agent:thought', roleName, `[QUOTA BRAKE]: Rate limit hit. Holding pipeline execution for ${Math.ceil(parseFloat(match[1]) + 2.5)}s to reset API windows...`);
+                            } else if (error.message.includes('429')) {
+                                waitTime = 30000;
+                                swarmBus.emit('agent:thought', roleName, `[QUOTA BRAKE]: Rate limit hit. Using 30s safety fallback pause...`);
+                            }
 
-                        // DYNAMIC PARSER: Look for "Please retry in X.XXXXs" in the Google API error message
-                        const match = error.message.match(/Please retry in (\d+\.?\d*)s/);
-                        if (match && match[1]) {
-                            // Extract seconds, convert to MS, and add a 2.5-second safety buffer
-                            waitTime = (parseFloat(match[1]) + 2.5) * 1000;
-                            swarmBus.emit('agent:thought', roleName, `[QUOTA BRAKE]: Rate limit hit. Holding pipeline execution for ${Math.ceil(parseFloat(match[1]) + 2.5)}s to reset API windows...`);
-                        } else if (error.message.includes('429')) {
-                            // Fallback if regex fails but status is still a 429 rate limit
-                            waitTime = 30000;
-                            swarmBus.emit('agent:thought', roleName, `[QUOTA BRAKE]: Rate limit hit. Using 30s safety fallback pause...`);
+                            // Sleep the current worker thread
+                            await new Promise(res => setTimeout(res, waitTime));
                         }
-
-                        // Sleep the current worker thread
-                        await new Promise(res => setTimeout(res, waitTime));
                     }
                 }
             }
